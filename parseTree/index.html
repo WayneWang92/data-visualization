@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>tree</title>
+    <style>
+        .node {
+            cursor: pointer;
+        }
+
+        .node circle {
+            fill: #fff;
+            stroke: steelblue;
+            stroke-width: 1.5px;
+        }
+
+        .node text {
+            font: 10px sans-serif;
+        }
+
+        .link {
+            fill: none;
+            stroke: #ccc;
+            stroke-width: 1px;
+        }
+
+        body, g {
+            overflow: hidden;
+        }
+
+        button {
+            font-size: 14px;
+            padding: 8px 14px 9px;
+        }
+
+
+    </style>
+</head>
+<body>
+<div id="dv"></div>
+
+<button>remove</button>
+</body>
+</html>
+<script src="./d3.v3.min.js"></script>
+<script>
+    (function () {
+        let windowH = window.innerHeight,
+            windowW = window.innerWidth,
+            root = {},
+            config = {i: 0, duration: 400, rectW: 100, rectH: 30},
+            zm;
+        let tree = d3.layout.tree().nodeSize([120, 40]);
+        let svg = d3.select("#dv").append("svg").attr("width", windowW).attr("height", windowH * 2 / 3)
+            .call(zm = d3.behavior.zoom().scaleExtent([1, 1]).on("zoom", redraw)).append("g")
+            .attr("transform", "translate(" + 690 + "," + 20 + ")");
+        zm.translate([690, 20]);
+
+        //Create arrow
+        svg.append("defs").append("marker").attr("id", "arrow")
+            .attr("markerUnits", "strokeWidth").attr("markerWidth", "8")
+            .attr("markerHeight", "8").attr("viewBox", "0 0 12 12")
+            .attr("refX", "6").attr("refY", "6").attr("orient", "auto")
+            .append("path").attr("d", "M2,2 L10,6 L2,10 L6,6 L2,2")
+            .attr("fill", "#000");
+
+        //Get data and draw to svg
+        d3.json('./readme.json', function (d) {
+            root = d;
+            root.x0 = 0;
+            root.y0 = 0;
+            root.children.forEach(collapse);
+            update(root);
+        });
+
+        //Call this function when node needs to collapse
+        function collapse(d) {
+            if (d.children) {
+                d._children = d.children;
+                d._children.forEach(collapse);
+                d.children = null;
+            }
+        }
+
+        //Method to generate links path
+        function elbow(d, i) {
+            return "M" + (d.source.x + config.rectW / 2) + "," + d.source.y
+                + "V" + (d.target.y + d.source.y) / 2
+                + "H" + (d.target.x + config.rectW / 2)
+                + "V" + (d.target.y - 3);
+        }
+
+        //Update view
+        function update(source) {
+
+            // Compute the new tree layout.
+            let nodes = tree.nodes(root).reverse(),
+                links = tree.links(nodes);
+
+            // Normalize for fixed-depth.
+            nodes.forEach(function (d) {
+                d.y = d.depth * 100;
+            });
+
+            // Update the nodes…
+            let node = svg.selectAll("g.node")
+                .data(nodes, function (d) {
+                    return d.id || (d.id = ++config.i);
+                });
+
+            // Enter any new nodes at the parent's previous position.
+            let nodeEnter = node.enter().append("g")
+                .style({'height': '300', 'width': '500'})
+                .attr("class", "node")
+                .attr("transform", function (d) {
+                    return "translate(" + source.x0 + "," + source.y0 + ")";
+                })
+                .on("click", click);
+
+
+            nodeEnter.append("rect")
+                .attr("width", config.rectW)
+                .attr("height", config.rectH)
+                .attr("stroke", "black")
+                .attr("stroke-width", 1)
+                .style("fill", function (d) {
+                    return d._children ? "lightsteelblue" : "#fff";
+                });
+
+            nodeEnter.append("text")
+                .attr("x", config.rectW / 2)
+                .attr("y", config.rectH / 2)
+                .attr("dy", ".35em")
+                .attr("text-anchor", "middle")
+                .text(function (d) {
+                    return d.name;
+                });
+
+            // Transition nodes to their new position.
+            let nodeUpdate = node.transition()
+                .duration(config.duration)
+                .attr("transform", function (d) {
+                    return "translate(" + d.x + "," + d.y + ")";
+                });
+
+            nodeUpdate.select("rect")
+                .attr("width", config.rectW)
+                .attr("height", config.rectH)
+                .attr("stroke", "black")
+                .attr("stroke-width", 1)
+                .style("fill", function (d) {
+                    return d._children ? "lightsteelblue" : "#fff";
+                });
+            nodeUpdate.select("text")
+                .style("fill-opacity", 1);
+
+            // Transition exiting nodes to the parent's new position.
+            let nodeExit = node.exit().transition()
+                .duration(config.duration)
+                .attr("transform", function (d) {
+                    return "translate(" + source.x + "," + source.y + ")";
+                })
+                .remove();
+
+            nodeExit.select("rect")
+                .attr("width", config.rectW)
+                .attr("height", config.rectH)
+                .attr("stroke", "black")
+                .attr("stroke-width", 1);
+
+            nodeExit.select("text");
+
+            // Update the links…
+            let link = svg.selectAll("path.link")
+                .data(links, function (d) {
+                    return d.target.id;
+                });
+
+            // Enter any new links at the parent's previous position.
+            link.enter().insert("path", "g")
+                .attr("class", "link")
+                .attr("x", config.rectW / 2)
+                .attr("y", config.rectH / 2)
+                .attr("d", function (d) {
+                    let o = {
+                        x: source.x0,
+                        y: source.y0
+                    };
+                    return elbow({
+                        source: o,
+                        target: o
+                    });
+                });
+            // Transition links to their new position.
+            link.transition()
+                .duration(config.duration)
+                .attr("d", elbow)
+                .attr("marker-end", "url(#arrow)");
+
+            // Transition exiting nodes to the parent's new position.
+            link.exit().transition()
+                .duration(config.duration)
+                .attr("d", function (d) {
+                    let o = {
+                        x: source.x,
+                        y: source.y
+                    };
+                    return elbow({
+                        source: o,
+                        target: o
+                    });
+                })
+                .remove();
+
+            // Stash the old positions for transition.
+            nodes.forEach(function (d) {
+                d.x0 = d.x;
+                d.y0 = d.y;
+            });
+        }
+
+        // Toggle children on click
+        function click(d) {
+            if (d.children) {
+                d._children = d.children;
+                d.children = null;
+            } else {
+                d.children = d._children;
+                d._children = null;
+            }
+            update(d);
+        }
+
+        //Redraw for zoom
+        function redraw() {
+            // console.log("here", d3.event.translate, d3.event.scale);
+            svg.attr("transform",
+                "translate(" + d3.event.translate + ")"
+                + " scale(" + d3.event.scale + ")");
+        }
+    })()
+</script>
