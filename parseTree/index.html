@@ -52,12 +52,13 @@
             windowW = window.innerWidth,
             root = {},
             config = {i: 0, duration: 400, rectW: 100, rectH: 30},
+            transX=(windowW-config.rectW)/2,
             zm;
         let tree = d3.layout.tree().nodeSize([120, 40]);
         let svg = d3.select("#dv").append("svg").attr("width", windowW).attr("height", windowH * 2 / 3)
             .call(zm = d3.behavior.zoom().scaleExtent([1, 1]).on("zoom", redraw)).append("g")
-            .attr("transform", "translate(" + 690 + "," + 20 + ")");
-        zm.translate([690, 20]);
+            .attr("transform", "translate(" + transX + "," + 20 + ")");
+        zm.translate([transX, 20]);
 
         //Create arrow
         svg.append("defs").append("marker").attr("id", "arrow")
