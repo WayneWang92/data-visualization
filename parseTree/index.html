@@ -74,7 +74,7 @@
             update(root);
         });
 
-        //Call this function when node needs to collapse
+        //params node,aim to change data state between collapse and expand
         function collapse(d) {
             if (d.children) {
                 d._children = d.children;
@@ -117,7 +117,6 @@
                     return "translate(" + source.x0 + "," + source.y0 + ")";
                 })
                 .on("click", click);
-
 
             nodeEnter.append("rect")
                 .attr("width", config.rectW)
@@ -234,7 +233,6 @@
 
         //Redraw for zoom
         function redraw() {
-            // console.log("here", d3.event.translate, d3.event.scale);
             svg.attr("transform",
                 "translate(" + d3.event.translate + ")"
                 + " scale(" + d3.event.scale + ")");
